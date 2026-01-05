@@ -1,0 +1,10 @@
+# Naive finetuning strategy (baseline)
+# Inherits from base configuration and adds strategy-specific settings
+
+defaults:
+  - ../base
+
+strategy:
+  name: naive
+
+run_name: naive_baseline

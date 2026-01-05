@@ -1,0 +1,38 @@
+# Base configuration for MLIP finetuning experiments
+# This file contains shared settings that can be inherited by specific strategy configs
+
+model:
+  architecture: nequip
+  pretrained_path: /path/to/pretrained/model.nequip
+
+data:
+  pretrain_data: /path/to/pretrain/dataset.xyz
+  finetune_data: /path/to/finetune/dataset.xyz
+  batch_size: 32
+  energy_key: energy
+  forces_key: forces
+  stress_key: stress
+
+training:
+  epochs: 100
+  lr: 1.0e-4
+  optimizer: adam
+  energy_weight: 1.0
+  force_weight: 1.0
+  stress_weight: 0.1
+
+evaluation:
+  metrics:
+    - energy_mae
+    - energy_rmse
+    - force_mae
+    - force_rmse
+    - stress_mae
+
+logging:
+  save_checkpoints: true
+  checkpoint_frequency: 10
+  log_frequency: 1
+
+# Weights & Biases configuration
+wandb_project: mlip-finetuning-strategies

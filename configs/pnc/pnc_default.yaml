@@ -1,0 +1,14 @@
+# Progress & Compress (P&C) strategy
+# Inherits from base configuration and adds P&C-specific settings
+
+defaults:
+  - ../base
+
+strategy:
+  name: pnc
+  compress_ratio: 0.1      # Compression ratio for knowledge base
+  active_size: 0.1         # Size of active column relative to full network
+  distill_temperature: 3.0 # Temperature for knowledge distillation
+  distill_weight: 1.0      # Weight for distillation loss
+
+run_name: pnc_default

@@ -1,0 +1,13 @@
+# Experience Replay strategy
+# Inherits from base configuration and adds replay-specific settings
+
+defaults:
+  - ../base
+
+strategy:
+  name: replay
+  buffer_size: 1000        # Size of replay buffer (number of samples)
+  replay_ratio: 0.2        # Fraction of replay data in each training batch
+  selection_method: random # Method for selecting samples for replay buffer
+
+run_name: replay_default

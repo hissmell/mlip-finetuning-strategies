@@ -263,21 +263,35 @@ def main():
             epochs = data["epochs"]
             metrics = data["metrics"]
 
+            # Core metrics
             initial_energy = metrics[0].get("energy_mae", 0) if metrics else 0
             final_energy = metrics[-1].get("energy_mae", 0) if metrics else 0
+
+            initial_energy_per_atom = metrics[0].get("energy_mae_per_atom", 0) if metrics else 0
+            final_energy_per_atom = metrics[-1].get("energy_mae_per_atom", 0) if metrics else 0
 
             initial_force = metrics[0].get("force_mae", 0) if metrics else 0
             final_force = metrics[-1].get("force_mae", 0) if metrics else 0
 
+            initial_cosine = metrics[0].get("force_cosine", 0) if metrics else 0
+            final_cosine = metrics[-1].get("force_cosine", 0) if metrics else 0
+
+            # Forgetting calculations
             energy_forgetting = ((final_energy - initial_energy) / initial_energy * 100
                                if initial_energy > 0 else 0)
+            energy_per_atom_forgetting = ((final_energy_per_atom - initial_energy_per_atom) / initial_energy_per_atom * 100
+                                         if initial_energy_per_atom > 0 else 0)
             force_forgetting = ((final_force - initial_force) / initial_force * 100
                               if initial_force > 0 else 0)
+            cosine_degradation = initial_cosine - final_cosine
 
             print(f"\nDataset: {dataset_name}")
             print(f"  Epochs analyzed: {len(epochs)} (from {min(epochs)} to {max(epochs)})")
-            print(f"  Energy MAE: {initial_energy:.4f} → {final_energy:.4f} eV ({energy_forgetting:+.1f}%)")
-            print(f"  Force MAE: {initial_force:.4f} → {final_force:.4f} eV/Å ({force_forgetting:+.1f}%)")
+            print(f"  Core Metrics:")
+            print(f"    Energy MAE: {initial_energy:.4f} → {final_energy:.4f} eV ({energy_forgetting:+.1f}%)")
+            print(f"    Energy MAE/atom: {initial_energy_per_atom:.4f} → {final_energy_per_atom:.4f} eV/atom ({energy_per_atom_forgetting:+.1f}%)")
+            print(f"    Force MAE: {initial_force:.4f} → {final_force:.4f} eV/Å ({force_forgetting:+.1f}%)")
+            print(f"    Force Cosine: {initial_cosine:.4f} → {final_cosine:.4f} (Δ{cosine_degradation:+.4f})")
 
     except Exception as e:
         print(f"Error during analysis: {e}")

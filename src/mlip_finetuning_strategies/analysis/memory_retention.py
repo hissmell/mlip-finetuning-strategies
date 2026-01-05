@@ -156,7 +156,11 @@ class MemoryRetentionAnalyzer:
             subset_size: Optional subset size for faster evaluation
 
         Returns:
-            Dictionary of evaluation metrics
+            Dictionary of evaluation metrics including required core metrics:
+            - energy_mae: Total energy MAE
+            - energy_mae_per_atom: Energy MAE per atom
+            - force_mae: Force component MAE
+            - force_cosine: Force cosine similarity
         """
         # Create dataset and dataloader
         dataset = MLIPDataset(dataset_path)
@@ -170,6 +174,7 @@ class MemoryRetentionAnalyzer:
 
         all_predictions = {}
         all_targets = {}
+        all_batch_info = {}
 
         model.eval()
         with torch.no_grad():
@@ -190,14 +195,35 @@ class MemoryRetentionAnalyzer:
                     if key in batch:
                         all_targets[key].append(batch[key].cpu())
 
-        # Concatenate all predictions and targets
+                # Collect batch info for per-atom calculations
+                for key in ["batch", "num_atoms", "num_nodes"]:
+                    if key in batch:
+                        if key not in all_batch_info:
+                            all_batch_info[key] = []
+                        all_batch_info[key].append(batch[key].cpu())
+
+        # Concatenate all predictions, targets, and batch info
         for key in all_predictions:
             all_predictions[key] = torch.cat(all_predictions[key])
             if key in all_targets and all_targets[key]:
                 all_targets[key] = torch.cat(all_targets[key])
 
-        # Compute metrics
-        metrics = compute_metrics(all_predictions, all_targets)
+        for key in all_batch_info:
+            all_batch_info[key] = torch.cat(all_batch_info[key])
+
+        # Compute metrics with batch info for per-atom calculations
+        metrics = compute_metrics(all_predictions, all_targets, all_batch_info)
+
+        # Ensure all required metrics are present
+        required_metrics = ["energy_mae", "energy_mae_per_atom", "force_mae", "force_cosine"]
+        missing_metrics = [m for m in required_metrics if m not in metrics]
+
+        if missing_metrics:
+            print(f"Warning: Missing required metrics: {missing_metrics}")
+            # Fill with NaN for missing metrics
+            for metric in missing_metrics:
+                metrics[metric] = float('nan')
+
         return metrics
 
     def analyze_retention(
@@ -335,27 +361,42 @@ class MemoryRetentionAnalyzer:
         colors = plt.cm.Set1(np.linspace(0, 1, len(all_results)))
         dataset_colors = dict(zip(all_results.keys(), colors))
 
-        # Plot 1: Energy MAE evolution
+        # Plot 1: Energy MAE evolution (Core Metric 1)
         ax = axes[0, 0]
         for dataset_name, results in all_results.items():
             epochs = results["epochs"]
             energy_mae = [m.get("energy_mae", 0) for m in results["metrics"]]
-            if energy_mae and any(e > 0 for e in energy_mae):
+            if energy_mae and any(e > 0 and not np.isnan(e) for e in energy_mae):
                 ax.plot(epochs, energy_mae, 'o-', label=dataset_name,
                        color=dataset_colors[dataset_name], alpha=0.7)
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Energy MAE (eV)")
-        ax.set_title("Energy Error Evolution")
+        ax.set_title("Total Energy Error Evolution")
         ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        # Plot 2: Force MAE evolution
+        # Plot 2: Energy MAE per atom evolution (Core Metric 2)
         ax = axes[0, 1]
         for dataset_name, results in all_results.items():
             epochs = results["epochs"]
+            energy_mae_per_atom = [m.get("energy_mae_per_atom", 0) for m in results["metrics"]]
+            if energy_mae_per_atom and any(e > 0 and not np.isnan(e) for e in energy_mae_per_atom):
+                ax.plot(epochs, energy_mae_per_atom, 'o-', label=dataset_name,
+                       color=dataset_colors[dataset_name], alpha=0.7)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Energy MAE per Atom (eV/atom)")
+        ax.set_title("Energy per Atom Error Evolution")
+        ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+        # Plot 3: Force MAE evolution (Core Metric 3)
+        ax = axes[0, 2]
+        for dataset_name, results in all_results.items():
+            epochs = results["epochs"]
             force_mae = [m.get("force_mae", 0) for m in results["metrics"]]
-            if force_mae and any(f > 0 for f in force_mae):
+            if force_mae and any(f > 0 and not np.isnan(f) for f in force_mae):
                 ax.plot(epochs, force_mae, 'o-', label=dataset_name,
                        color=dataset_colors[dataset_name], alpha=0.7)
         ax.set_xlabel("Epoch")
@@ -365,70 +406,58 @@ class MemoryRetentionAnalyzer:
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        # Plot 3: Energy RMSE evolution
-        ax = axes[0, 2]
-        for dataset_name, results in all_results.items():
-            epochs = results["epochs"]
-            energy_rmse = [m.get("energy_rmse", 0) for m in results["metrics"]]
-            if energy_rmse and any(e > 0 for e in energy_rmse):
-                ax.plot(epochs, energy_rmse, 'o-', label=dataset_name,
-                       color=dataset_colors[dataset_name], alpha=0.7)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Energy RMSE (eV)")
-        ax.set_title("Energy RMSE Evolution")
-        ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-
-        # Plot 4: Normalized energy evolution (forgetting)
+        # Plot 4: Force Cosine Similarity evolution (Core Metric 4)
         ax = axes[1, 0]
         for dataset_name, results in all_results.items():
             epochs = results["epochs"]
-            energy_mae = [m.get("energy_mae", 0) for m in results["metrics"]]
-            if len(energy_mae) > 0 and energy_mae[0] > 0:
-                baseline = energy_mae[0]
-                normalized = [e / baseline for e in energy_mae]
-                ax.plot(epochs, normalized, 'o-', label=dataset_name,
+            force_cosine = [m.get("force_cosine", 0) for m in results["metrics"]]
+            if force_cosine and any(not np.isnan(c) for c in force_cosine):
+                ax.plot(epochs, force_cosine, 'o-', label=dataset_name,
                        color=dataset_colors[dataset_name], alpha=0.7)
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Normalized Energy MAE")
-        ax.set_title("Energy Forgetting (1 = pretrained)")
+        ax.set_ylabel("Force Cosine Similarity")
+        ax.set_title("Force Direction Accuracy")
         ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
-        ax.axhline(y=1.0, color='red', linestyle='--', alpha=0.3)
+        ax.axhline(y=1.0, color='green', linestyle='--', alpha=0.3, label='Perfect')
+        ax.axhline(y=0.0, color='red', linestyle='--', alpha=0.3, label='Random')
+        ax.set_ylim([-1.1, 1.1])
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        # Plot 5: Normalized force evolution (forgetting)
+        # Plot 5: Normalized energy per atom evolution (forgetting)
         ax = axes[1, 1]
         for dataset_name, results in all_results.items():
             epochs = results["epochs"]
-            force_mae = [m.get("force_mae", 0) for m in results["metrics"]]
-            if len(force_mae) > 0 and force_mae[0] > 0:
-                baseline = force_mae[0]
-                normalized = [f / baseline for f in force_mae]
+            energy_mae_per_atom = [m.get("energy_mae_per_atom", 0) for m in results["metrics"]]
+            if (len(energy_mae_per_atom) > 0 and energy_mae_per_atom[0] > 0
+                and not np.isnan(energy_mae_per_atom[0])):
+                baseline = energy_mae_per_atom[0]
+                normalized = [e / baseline if not np.isnan(e) else np.nan for e in energy_mae_per_atom]
                 ax.plot(epochs, normalized, 'o-', label=dataset_name,
                        color=dataset_colors[dataset_name], alpha=0.7)
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Normalized Force MAE")
-        ax.set_title("Force Forgetting (1 = pretrained)")
+        ax.set_ylabel("Normalized Energy MAE per Atom")
+        ax.set_title("Energy per Atom Forgetting (1 = pretrained)")
         ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
         ax.axhline(y=1.0, color='red', linestyle='--', alpha=0.3)
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        # Plot 6: Forgetting percentage
+        # Plot 6: Force forgetting percentage
         ax = axes[1, 2]
         for dataset_name, results in all_results.items():
             epochs = results["epochs"]
-            energy_mae = [m.get("energy_mae", 0) for m in results["metrics"]]
-            if len(energy_mae) > 0 and energy_mae[0] > 0:
-                baseline = energy_mae[0]
-                forgetting_pct = [(e - baseline) / baseline * 100 for e in energy_mae]
+            force_mae = [m.get("force_mae", 0) for m in results["metrics"]]
+            if (len(force_mae) > 0 and force_mae[0] > 0
+                and not np.isnan(force_mae[0])):
+                baseline = force_mae[0]
+                forgetting_pct = [((f - baseline) / baseline * 100) if not np.isnan(f) else np.nan
+                                 for f in force_mae]
                 ax.plot(epochs, forgetting_pct, 'o-', label=dataset_name,
                        color=dataset_colors[dataset_name], alpha=0.7)
         ax.set_xlabel("Epoch")
-        ax.set_ylabel("Forgetting (%)")
-        ax.set_title("Energy Forgetting Rate")
+        ax.set_ylabel("Force Forgetting (%)")
+        ax.set_title("Force Error Forgetting Rate")
         ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5)
         ax.axhline(y=0, color='black', linestyle='-', alpha=0.3)
         ax.legend()

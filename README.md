@@ -218,11 +218,17 @@ The analysis generates several visualizations:
 - **Forgetting Rate**: Percentage increase in error from pretrained baseline
 - **Multi-Dataset Comparison**: Compare retention across different datasets
 
-**Key Metrics:**
-- `energy_mae`: Mean Absolute Error for energy predictions
-- `force_mae`: Mean Absolute Error for force predictions
-- `energy_forgetting_pct`: Percentage increase in energy error
-- `force_forgetting_pct`: Percentage increase in force error
+**Key Metrics (Required Core Metrics):**
+1. `energy_mae`: Mean Absolute Error for total energy predictions (eV)
+2. `energy_mae_per_atom`: Mean Absolute Error for energy per atom (eV/atom)
+3. `force_mae`: Mean Absolute Error for force component predictions (eV/Å)
+4. `force_cosine`: Mean cosine similarity for force direction accuracy (-1 to 1)
+
+**Additional Metrics:**
+- `energy_rmse`: Root Mean Square Error for energy predictions
+- `force_rmse`: Root Mean Square Error for force predictions
+- `energy_forgetting_pct`: Percentage increase in energy error from baseline
+- `force_forgetting_pct`: Percentage increase in force error from baseline
 
 **Interpreting Results:**
 - Values > 1.0 in normalized plots indicate worse performance than pretrained

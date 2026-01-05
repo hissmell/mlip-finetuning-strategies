@@ -54,6 +54,7 @@ Documentation = "https://github.com/yourusername/mlip-finetuning-strategies/blob
 
 [project.scripts]
 mlip-finetune = "mlip_finetuning_strategies.cli:main"
+mlip-analyze = "mlip_finetuning_strategies.cli_analyze:main"
 
 [tool.hatch.version]
 path = "src/mlip_finetuning_strategies/__init__.py"

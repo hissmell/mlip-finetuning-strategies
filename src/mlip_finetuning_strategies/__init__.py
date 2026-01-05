@@ -12,6 +12,7 @@ from .strategies import *
 from .models import *
 from .data import *
 from .utils import *
+from .analysis import *
 
 __all__ = [
     "BaseStrategy",
@@ -22,4 +23,6 @@ __all__ = [
     "MLIPModel",
     "compute_metrics",
     "setup_wandb_logging",
+    "MemoryRetentionAnalyzer",
+    "analyze_memory_retention",
 ]

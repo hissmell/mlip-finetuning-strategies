@@ -36,3 +36,15 @@ logging:
 
 # Weights & Biases configuration
 wandb_project: mlip-finetuning-strategies
+
+# Memory retention analysis configuration
+memory_retention:
+  reference_datasets:
+    pretrain_general: /path/to/pretrain/general_dataset.xyz
+    pretrain_specific: /path/to/pretrain/specific_dataset.xyz
+    validation: /path/to/validation_dataset.xyz
+
+  analysis:
+    batch_size: 32
+    epoch_step: 10  # Analyze every 10 epochs for efficiency
+    subset_size: 1000  # Use subset for faster analysis (optional)

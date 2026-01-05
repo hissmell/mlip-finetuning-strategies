@@ -23,6 +23,12 @@ When finetuning pretrained MLIP models on new datasets, catastrophic forgetting 
 - **Allegro** (coming soon)
 - **MACE** (coming soon)
 
+### Analysis Tools
+
+- **Memory Retention Analysis**: Evaluate how well models retain pretrained knowledge during finetuning
+- **Catastrophic Forgetting Metrics**: Quantify performance degradation on original tasks
+- **Training Progress Visualization**: Track metrics across epochs with automatic plotting
+
 ## Installation
 
 ### From Source
@@ -120,6 +126,108 @@ for batch in dataloader:
     loss = strategy.compute_loss(predictions, batch, task_id=0)
     # ... optimization step
 ```
+
+## Memory Retention Analysis
+
+Analyze how well your finetuned models retain knowledge from pretraining.
+
+### 1. CLI Analysis Tool
+
+```bash
+# Basic memory retention analysis
+mlip-analyze --experiment-dir experiments/20250105_120000_ewc_experiment \
+             --reference-datasets pretrain:/path/to/pretrain/data.xyz \
+             --wandb-project memory-retention-analysis
+
+# Multiple reference datasets
+mlip-analyze --experiment-dir experiments/20250105_120000_ewc_experiment \
+             --reference-datasets \
+                 pretrain:/path/to/pretrain/data.xyz \
+                 validation:/path/to/validation/data.xyz \
+                 test:/path/to/test/data.xyz
+
+# Advanced options
+mlip-analyze --experiment-dir experiments/my_experiment \
+             --reference-datasets pretrain:/path/to/data.xyz \
+             --batch-size 16 \
+             --epoch-step 5 \
+             --max-epochs 100 \
+             --subset-size 1000 \
+             --device cuda
+```
+
+### 2. Python API for Analysis
+
+```python
+from mlip_finetuning_strategies.analysis import analyze_memory_retention
+
+# Define reference datasets
+reference_datasets = {
+    "pretrain": "/path/to/pretrain/data.xyz",
+    "validation": "/path/to/validation/data.xyz"
+}
+
+# Model configuration
+model_config = {
+    "architecture": "nequip",
+    "pretrained_path": "/path/to/pretrained/model.nequip"
+}
+
+# Run analysis
+results = analyze_memory_retention(
+    experiment_dir="experiments/my_experiment",
+    reference_datasets=reference_datasets,
+    model_config=model_config,
+    wandb_project="memory-retention",
+    batch_size=32,
+    max_epochs=100,
+    epoch_step=5
+)
+
+# Access results
+for dataset_name, data in results.items():
+    epochs = data["epochs"]
+    metrics = data["metrics"]
+    print(f"{dataset_name}: {len(epochs)} epochs analyzed")
+```
+
+### 3. Configuration for Automatic Analysis
+
+Add memory retention configuration to your training config:
+
+```yaml
+# In your training config.yaml
+memory_retention:
+  reference_datasets:
+    pretrain_general: /path/to/pretrain/general.xyz
+    pretrain_specific: /path/to/pretrain/specific.xyz
+    validation: /path/to/validation.xyz
+
+  analysis:
+    batch_size: 32
+    epoch_step: 10  # Analyze every 10 epochs
+    subset_size: 1000  # Use subset for faster analysis
+```
+
+### 4. Understanding the Results
+
+The analysis generates several visualizations:
+
+- **Energy/Force Error Evolution**: Track how errors change during training
+- **Normalized Metrics**: Compare relative performance (1.0 = pretrained baseline)
+- **Forgetting Rate**: Percentage increase in error from pretrained baseline
+- **Multi-Dataset Comparison**: Compare retention across different datasets
+
+**Key Metrics:**
+- `energy_mae`: Mean Absolute Error for energy predictions
+- `force_mae`: Mean Absolute Error for force predictions
+- `energy_forgetting_pct`: Percentage increase in energy error
+- `force_forgetting_pct`: Percentage increase in force error
+
+**Interpreting Results:**
+- Values > 1.0 in normalized plots indicate worse performance than pretrained
+- Positive forgetting rates indicate catastrophic forgetting
+- Stable or decreasing trends show good retention
 
 ## Configuration Reference
 
